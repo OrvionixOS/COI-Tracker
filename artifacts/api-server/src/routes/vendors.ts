@@ -114,7 +114,7 @@ function checkCompliance(vendor: {
   return { status, daysLeft };
 }
 
-function dbToApi(row: Awaited<ReturnType<typeof db.select>>[ number ] & { coverages: unknown; additional_insured?: boolean; waiver_of_subrogation?: boolean }) {
+function dbToApi(row: { id: number; name: string; type: string; additionalInsured: boolean; waiverOfSubrogation: boolean; certificateHolder: string; coverages: unknown; source: string | null; createdAt: Date }) {
   return {
     id: row.id,
     name: row.name,

@@ -9,7 +9,7 @@ import {
   getListVendorsQueryKey,
   getGetStatsQueryKey,
 } from "@workspace/api-client-react";
-import type { Vendor } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Vendor } from "@workspace/api-client-react";
 
 // ── Brand tokens ─────────────────────────────────────────────
 const C = {
@@ -137,7 +137,7 @@ function checkCompliance(vendor: Vendor) {
   let daysLeft: number | null = null;
   let expiringSoon = false;
   if (earliestExp) {
-    daysLeft = Math.ceil((earliestExp.getTime() - now.getTime()) / 86400000);
+    daysLeft = Math.ceil(((earliestExp as Date).getTime() - now.getTime()) / 86400000);
     if (daysLeft < 0) {
       checks.push({ label: "Coverage Active", pass: false, detail: `Coverage lapsed ${fmtDate(earliestExp)}` });
     } else if (daysLeft <= 30) {
@@ -152,6 +152,73 @@ function checkCompliance(vendor: Vendor) {
 
 const statusColor = (s: string) => (s === "Compliant" ? C.ok : s === "Expiring" ? C.warn : C.bad);
 const statusLabel = (s: string, d: number | null) => (s === "Expiring" && d != null ? `Expiring · ${d}d` : s);
+
+// ── Email generation ──────────────────────────────────────────
+function generateReminderEmail(vendor: Vendor, result: ReturnType<typeof checkCompliance>): string {
+  const holder = vendor.certificate_holder || "our organization";
+  const reqs = REQUIREMENTS[vendor.type] || REQUIREMENTS["General Contractor"];
+  const failedChecks = result.checks.filter((c) => !c.pass);
+  const isExpiring = result.status === "Expiring";
+  const expiryStr = result.earliestExp ? fmtDate(result.earliestExp) : "";
+
+  const requirementLines = reqs.coverages.map((r: any) => {
+    const parts: string[] = [`  • ${r.label}`];
+    if (r.each_occurrence) parts.push(`$${r.each_occurrence.toLocaleString()} each occurrence`);
+    if (r.aggregate) parts.push(`$${r.aggregate.toLocaleString()} aggregate`);
+    return parts.join(" / ");
+  });
+  if (reqs.additionalInsured) requirementLines.push(`  • ${holder} listed as Additional Insured`);
+
+  if (isExpiring) {
+    return [
+      `Subject: Certificate of Insurance Expiring Soon — Renewal Required · ${vendor.name}`,
+      "",
+      `${vendor.name},`,
+      "",
+      `We are writing to notify you that your Certificate of Insurance on file with ${holder} is scheduled to expire on ${expiryStr} — ${result.daysLeft} day${result.daysLeft === 1 ? "" : "s"} from today.`,
+      "",
+      `To maintain uninterrupted compliance and continued authorization to perform work on behalf of ${holder}, please arrange for a renewed certificate to be issued before this date.`,
+      "",
+      `Your certificate should reflect the following minimum requirements for ${vendor.type} vendors:`,
+      "",
+      ...requirementLines,
+      "",
+      `Please have your insurance broker send the updated certificate directly to ${holder} at your earliest convenience.`,
+      "",
+      `If you have already renewed your policy, please arrange for the updated ACORD 25 to be forwarded to us promptly.`,
+      "",
+      `Thank you for your prompt attention to this matter.`,
+      "",
+      `${holder} — Vendor Compliance`,
+    ].join("\n");
+  }
+
+  const issueLines = failedChecks.map((c) => `  • ${c.label}: ${c.detail}`);
+
+  return [
+    `Subject: Action Required — Insurance Certificate Update Needed · ${vendor.name}`,
+    "",
+    `${vendor.name},`,
+    "",
+    `We are conducting a routine review of vendor insurance certificates maintained on file with ${holder}.`,
+    "",
+    `Upon reviewing your most recent Certificate of Liability Insurance, we have identified the following item${failedChecks.length === 1 ? "" : "s"} that require your attention:`,
+    "",
+    ...issueLines,
+    "",
+    `To remain in good standing as an authorized ${vendor.type} vendor for ${holder}, please provide an updated certificate that meets the following minimum requirements:`,
+    "",
+    ...requirementLines,
+    "",
+    `Please have your insurance broker issue a revised ACORD 25 Certificate of Liability Insurance reflecting these requirements and send it directly to ${holder}.`,
+    "",
+    `If you believe this notice was sent in error or if you have questions regarding the requirements, please contact us so we can review your file.`,
+    "",
+    `Thank you for your continued partnership.`,
+    "",
+    `${holder} — Vendor Compliance`,
+  ].join("\n");
+}
 
 // ── UI atoms ─────────────────────────────────────────────────
 function Chip({ status, days }: { status: string; days: number | null }) {
@@ -196,9 +263,14 @@ export default function Dashboard() {
   const [vType, setVType] = useState(VENDOR_TYPES[0]);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [remindersOpen, setRemindersOpen] = useState(false);
+  const [bulkCopied, setBulkCopied] = useState(false);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSelected(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setSelected(null); setRemindersOpen(false); }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
@@ -212,6 +284,29 @@ export default function Dashboard() {
   }), [results]);
 
   const shown = useMemo(() => filter === "All" ? results : results.filter((x) => x.r.status === filter), [filter, results]);
+
+  const actionableVendors = useMemo(
+    () => results.filter((x) => x.r.status === "Non-compliant" || x.r.status === "Expiring"),
+    [results]
+  );
+
+  const copyEmail = (vendor: Vendor, result: ReturnType<typeof checkCompliance>) => {
+    const text = generateReminderEmail(vendor, result);
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(vendor.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
+  const copyBulk = () => {
+    const all = actionableVendors
+      .map(({ v, r }) => generateReminderEmail(v, r))
+      .join("\n\n" + "─".repeat(60) + "\n\n");
+    navigator.clipboard.writeText(all).then(() => {
+      setBulkCopied(true);
+      setTimeout(() => setBulkCopied(false), 2000);
+    });
+  };
 
   const toBase64 = (file: File) =>
     new Promise<string>((res, rej) => {
@@ -270,7 +365,7 @@ export default function Dashboard() {
   };
 
   const glLimit = (v: Vendor) => {
-    const gl = (v.coverages || []).find((c) => normalizeType(c.type) === "gl");
+    const gl = (v.coverages || []).find((c: any) => normalizeType(c.type) === "gl");
     return gl ? fmtMoney(parseMoney(gl.each_occurrence)) : "—";
   };
   
@@ -296,6 +391,19 @@ export default function Dashboard() {
               <select value={vType} onChange={(e) => setVType(e.target.value)} aria-label="Vendor type for upload">
                 {VENDOR_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
+              {actionableVendors.length > 0 && (
+                <button className="coi-btn" onClick={() => setRemindersOpen(true)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "transparent",
+                    color: C.warn, border: `1px solid ${C.warn}55`, borderRadius: 2, padding: "9px 16px",
+                    fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    width: 17, height: 17, borderRadius: "50%", background: `${C.warn}22`,
+                    fontFamily: "'DM Mono', monospace", fontSize: 10, color: C.warn }}>
+                    {actionableVendors.length}
+                  </span>
+                  Send reminders
+                </button>
+              )}
               <button className="coi-btn" disabled={busy} onClick={() => fileRef.current && fileRef.current.click()}
                 style={{ display: "inline-flex", alignItems: "center", gap: 9, background: "transparent",
                   color: C.gold, border: `1px solid ${C.gold}`, borderRadius: 2, padding: "9px 16px",
@@ -402,6 +510,91 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Bulk reminders modal */}
+      {remindersOpen && (
+        <div onClick={() => setRemindersOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(7,7,9,0.78)",
+          display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "5vh 18px", zIndex: 60 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.panel, border: `1px solid ${C.line}`,
+            borderRadius: 4, maxWidth: 680, width: "100%", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+
+            {/* Modal header */}
+            <div style={{ padding: "22px 26px", borderBottom: `1px solid ${C.line}`, display: "flex",
+              justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexShrink: 0 }}>
+              <div>
+                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 24, fontWeight: 600 }}>
+                  Reminder drafts
+                </div>
+                <div style={{ marginTop: 5, fontFamily: "'DM Mono', monospace", fontSize: 11, color: C.muted,
+                  letterSpacing: "0.06em" }}>
+                  {actionableVendors.length} vendor{actionableVendors.length === 1 ? "" : "s"} require attention
+                </div>
+              </div>
+              <button onClick={() => setRemindersOpen(false)} style={{ background: "none", border: `1px solid ${C.lineSoft}`,
+                color: C.muted, borderRadius: 2, width: 30, height: 30, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
+            </div>
+
+            {/* Per-vendor rows */}
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {actionableVendors.map(({ v, r }) => (
+                <div key={v.id} style={{ padding: "18px 26px", borderBottom: `1px solid ${C.lineSoft}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                    gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 500 }}>{v.name}</div>
+                      <Chip status={r.status} days={r.daysLeft} />
+                    </div>
+                    <button
+                      className="coi-btn"
+                      onClick={() => copyEmail(v, r)}
+                      style={{
+                        background: copiedId === v.id ? `${C.gold}18` : "transparent",
+                        color: copiedId === v.id ? C.gold : C.muted,
+                        border: `1px solid ${copiedId === v.id ? C.gold + "55" : C.lineSoft}`,
+                        borderRadius: 2, padding: "5px 12px",
+                        fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer",
+                        transition: "all .15s ease", whiteSpace: "nowrap",
+                      }}
+                    >
+                      {copiedId === v.id ? "Copied" : "Copy draft"}
+                    </button>
+                  </div>
+                  <pre style={{ margin: 0, fontFamily: "'DM Mono', monospace", fontSize: 11, color: C.muted,
+                    lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word",
+                    background: C.raised, border: `1px solid ${C.lineSoft}`, borderRadius: 2,
+                    padding: "14px 16px", maxHeight: 200, overflowY: "auto" }}>
+                    {generateReminderEmail(v, r)}
+                  </pre>
+                </div>
+              ))}
+            </div>
+
+            {/* Modal footer */}
+            <div style={{ padding: "14px 26px", borderTop: `1px solid ${C.line}`, display: "flex",
+              justifyContent: "space-between", alignItems: "center", gap: 12, flexShrink: 0,
+              background: "rgba(0,0,0,0.15)" }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: C.muted }}>
+                Each draft is tailored to the vendor's specific failures.
+              </div>
+              <button
+                className="coi-btn"
+                onClick={copyBulk}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  background: bulkCopied ? `${C.gold}18` : "transparent",
+                  color: bulkCopied ? C.gold : C.warn,
+                  border: `1px solid ${bulkCopied ? C.gold + "55" : C.warn + "55"}`,
+                  borderRadius: 2, padding: "8px 16px",
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500,
+                  cursor: "pointer", transition: "all .15s ease",
+                }}
+              >
+                {bulkCopied ? "All drafts copied" : `Copy all ${actionableVendors.length} drafts`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Detail modal */}
       {selected && (() => {
         const r = checkCompliance(selected);
@@ -451,7 +644,7 @@ export default function Dashboard() {
                   textTransform: "uppercase", color: C.muted, marginBottom: 16 }}>Coverages on file</div>
                 {selected.coverages && selected.coverages.length > 0 ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    {selected.coverages.map((c, i) => (
+                    {selected.coverages.map((c: any, i: number) => (
                       <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
                         <div>
                           <div style={{ color: C.ivory, fontWeight: 500 }}>{c.type}</div>
@@ -482,7 +675,25 @@ export default function Dashboard() {
               </div>
 
               {/* Footer actions */}
-              <div style={{ padding: "16px 26px", background: "rgba(0,0,0,0.2)", display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ padding: "16px 26px", background: "rgba(0,0,0,0.2)", display: "flex",
+                justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div>
+                  {(r.status === "Non-compliant" || r.status === "Expiring") && (
+                    <button
+                      className="coi-btn"
+                      onClick={() => copyEmail(selected, r)}
+                      style={{
+                        background: copiedId === selected.id ? `${C.gold}18` : "transparent",
+                        color: copiedId === selected.id ? C.gold : C.muted,
+                        border: `1px solid ${copiedId === selected.id ? C.gold + "55" : C.lineSoft}`,
+                        borderRadius: 2, padding: "7px 14px", fontFamily: "'DM Sans', sans-serif", fontSize: 12,
+                        cursor: "pointer", transition: "all .15s ease",
+                      }}
+                    >
+                      {copiedId === selected.id ? "Copied to clipboard" : "Copy email draft"}
+                    </button>
+                  )}
+                </div>
                 <button
                   className="coi-btn"
                   onClick={() => handleDelete(selected.id)}
