@@ -114,7 +114,7 @@ function checkCompliance(vendor: {
   return { status, daysLeft };
 }
 
-function dbToApi(row: { id: number; name: string; type: string; additionalInsured: boolean; waiverOfSubrogation: boolean; certificateHolder: string; coverages: unknown; source: string | null; createdAt: Date }) {
+function dbToApi(row: { id: number; name: string; type: string; additionalInsured: boolean; waiverOfSubrogation: boolean; certificateHolder: string; coverages: unknown; source: string | null; email: string | null; createdAt: Date }) {
   return {
     id: row.id,
     name: row.name,
@@ -122,6 +122,7 @@ function dbToApi(row: { id: number; name: string; type: string; additionalInsure
     additional_insured: row.additionalInsured,
     waiver_of_subrogation: row.waiverOfSubrogation,
     certificate_holder: row.certificateHolder,
+    email: row.email ?? null,
     coverages: Array.isArray(row.coverages) ? row.coverages : [],
     source: row.source ?? null,
     created_at: row.createdAt?.toISOString?.() ?? "",
@@ -146,6 +147,7 @@ router.post("/vendors", async (req, res): Promise<void> => {
     additionalInsured: d.additional_insured,
     waiverOfSubrogation: d.waiver_of_subrogation,
     certificateHolder: d.certificate_holder,
+    email: d.email ?? null,
     coverages: d.coverages as object[],
     source: d.source ?? null,
   }).returning();
@@ -174,6 +176,7 @@ router.put("/vendors/:id", async (req, res): Promise<void> => {
     additionalInsured: d.additional_insured,
     waiverOfSubrogation: d.waiver_of_subrogation,
     certificateHolder: d.certificate_holder,
+    email: d.email ?? null,
     coverages: d.coverages as object[],
     source: d.source ?? null,
   }).where(eq(vendorsTable.id, id)).returning();

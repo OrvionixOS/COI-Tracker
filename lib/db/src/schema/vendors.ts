@@ -11,6 +11,7 @@ export const vendorsTable = pgTable("vendors", {
   certificateHolder: text("certificate_holder").notNull().default(""),
   coverages: jsonb("coverages").notNull().default([]),
   source: text("source"),
+  email: text("email"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

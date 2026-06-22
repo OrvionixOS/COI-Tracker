@@ -14,6 +14,8 @@ export interface Vendor {
   additional_insured: boolean;
   waiver_of_subrogation: boolean;
   certificate_holder: string;
+  /** @nullable */
+  email?: string | null;
   coverages: Coverage[];
   /** @nullable */
   source?: string | null;

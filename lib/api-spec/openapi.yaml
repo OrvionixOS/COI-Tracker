@@ -193,6 +193,8 @@ components:
           type: boolean
         certificate_holder:
           type: string
+        email:
+          type: ["string", "null"]
         coverages:
           type: array
           items:
@@ -223,6 +225,8 @@ components:
           type: boolean
         certificate_holder:
           type: string
+        email:
+          type: ["string", "null"]
         coverages:
           type: array
           items:

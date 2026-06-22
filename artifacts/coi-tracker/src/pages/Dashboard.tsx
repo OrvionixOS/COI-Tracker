@@ -5,6 +5,7 @@ import {
   useGetStats,
   useExtractCoi,
   useCreateVendor,
+  useUpdateVendor,
   useDeleteVendor,
   getListVendorsQueryKey,
   getGetStatsQueryKey,
@@ -266,6 +267,9 @@ export default function Dashboard() {
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [remindersOpen, setRemindersOpen] = useState(false);
   const [bulkCopied, setBulkCopied] = useState(false);
+  const [emailDraft, setEmailDraft] = useState("");
+  const [emailSaving, setEmailSaving] = useState(false);
+  const updateMutation = useUpdateVendor();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -274,6 +278,10 @@ export default function Dashboard() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    setEmailDraft(selected?.email ?? "");
+  }, [selected?.id]);
 
   const results = useMemo(() => vendors.map((v) => ({ v, r: checkCompliance(v) })), [vendors]);
   
@@ -289,6 +297,39 @@ export default function Dashboard() {
     () => results.filter((x) => x.r.status === "Non-compliant" || x.r.status === "Expiring"),
     [results]
   );
+
+  const saveEmail = async () => {
+    if (!selected) return;
+    setEmailSaving(true);
+    try {
+      const updated = await updateMutation.mutateAsync({
+        id: selected.id,
+        data: {
+          name: selected.name,
+          type: selected.type,
+          additional_insured: selected.additional_insured,
+          waiver_of_subrogation: selected.waiver_of_subrogation,
+          certificate_holder: selected.certificate_holder,
+          email: emailDraft.trim() || null,
+          coverages: selected.coverages ?? [],
+          source: selected.source ?? null,
+        },
+      });
+      setSelected(updated);
+      queryClient.invalidateQueries({ queryKey: getListVendorsQueryKey() });
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
+  const openMailto = (vendor: Vendor, result: ReturnType<typeof checkCompliance>) => {
+    const body = generateReminderEmail(vendor, result);
+    const lines = body.split("\n");
+    const subject = lines[0].replace(/^Subject:\s*/i, "");
+    const bodyText = lines.slice(2).join("\n");
+    const mailto = `mailto:${encodeURIComponent(vendor.email ?? "")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
+    window.open(mailto, "_self");
+  };
 
   const copyEmail = (vendor: Vendor, result: ReturnType<typeof checkCompliance>) => {
     const text = generateReminderEmail(vendor, result);
@@ -539,24 +580,45 @@ export default function Dashboard() {
                 <div key={v.id} style={{ padding: "18px 26px", borderBottom: `1px solid ${C.lineSoft}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                     gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                       <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 500 }}>{v.name}</div>
                       <Chip status={r.status} days={r.daysLeft} />
+                      {v.email
+                        ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: C.muted }}>{v.email}</span>
+                        : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: `${C.muted}77`,
+                            fontStyle: "italic" }}>no email on file</span>
+                      }
                     </div>
-                    <button
-                      className="coi-btn"
-                      onClick={() => copyEmail(v, r)}
-                      style={{
-                        background: copiedId === v.id ? `${C.gold}18` : "transparent",
-                        color: copiedId === v.id ? C.gold : C.muted,
-                        border: `1px solid ${copiedId === v.id ? C.gold + "55" : C.lineSoft}`,
-                        borderRadius: 2, padding: "5px 12px",
-                        fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer",
-                        transition: "all .15s ease", whiteSpace: "nowrap",
-                      }}
-                    >
-                      {copiedId === v.id ? "Copied" : "Copy draft"}
-                    </button>
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                      {v.email && (
+                        <button
+                          className="coi-btn"
+                          onClick={() => openMailto(v, r)}
+                          style={{
+                            background: `${C.gold}12`, color: C.gold, border: `1px solid ${C.gold}44`,
+                            borderRadius: 2, padding: "5px 10px",
+                            fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Send email
+                        </button>
+                      )}
+                      <button
+                        className="coi-btn"
+                        onClick={() => copyEmail(v, r)}
+                        style={{
+                          background: copiedId === v.id ? `${C.gold}18` : "transparent",
+                          color: copiedId === v.id ? C.gold : C.muted,
+                          border: `1px solid ${copiedId === v.id ? C.gold + "55" : C.lineSoft}`,
+                          borderRadius: 2, padding: "5px 10px",
+                          fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer",
+                          transition: "all .15s ease", whiteSpace: "nowrap",
+                        }}
+                      >
+                        {copiedId === v.id ? "Copied" : "Copy draft"}
+                      </button>
+                    </div>
                   </div>
                   <pre style={{ margin: 0, fontFamily: "'DM Mono', monospace", fontSize: 11, color: C.muted,
                     lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word",
@@ -615,6 +677,41 @@ export default function Dashboard() {
                 </div>
                 <button onClick={() => setSelected(null)} style={{ background: "none", border: `1px solid ${C.lineSoft}`,
                   color: C.muted, borderRadius: 2, width: 30, height: 30, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
+              </div>
+
+              {/* Email address row */}
+              <div style={{ padding: "14px 26px", borderBottom: `1px solid ${C.lineSoft}`,
+                display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.1em",
+                  textTransform: "uppercase", color: C.muted, flexShrink: 0 }}>
+                  Contact email
+                </div>
+                <input
+                  type="email"
+                  value={emailDraft}
+                  onChange={(e) => setEmailDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && saveEmail()}
+                  placeholder="vendor@example.com"
+                  style={{
+                    flex: 1, background: "transparent", border: "none",
+                    borderBottom: `1px solid ${C.line}`, color: C.ivory,
+                    fontFamily: "'DM Mono', monospace", fontSize: 12,
+                    padding: "3px 0", outline: "none",
+                  }}
+                />
+                {emailDraft !== (selected.email ?? "") && (
+                  <button
+                    onClick={saveEmail}
+                    disabled={emailSaving}
+                    style={{
+                      background: "transparent", color: C.gold, border: `1px solid ${C.gold}55`,
+                      borderRadius: 2, padding: "4px 10px", fontFamily: "'DM Mono', monospace",
+                      fontSize: 11, cursor: "pointer", whiteSpace: "nowrap",
+                    }}
+                  >
+                    {emailSaving ? "Saving…" : "Save"}
+                  </button>
+                )}
               </div>
 
               {/* Compliance check */}
@@ -677,7 +774,21 @@ export default function Dashboard() {
               {/* Footer actions */}
               <div style={{ padding: "16px 26px", background: "rgba(0,0,0,0.2)", display: "flex",
                 justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  {(r.status === "Non-compliant" || r.status === "Expiring") && selected.email && (
+                    <button
+                      className="coi-btn"
+                      onClick={() => openMailto(selected, r)}
+                      style={{
+                        background: `${C.gold}12`, color: C.gold,
+                        border: `1px solid ${C.gold}55`,
+                        borderRadius: 2, padding: "7px 14px", fontFamily: "'DM Sans', sans-serif",
+                        fontSize: 12, fontWeight: 500, cursor: "pointer",
+                      }}
+                    >
+                      Send email
+                    </button>
+                  )}
                   {(r.status === "Non-compliant" || r.status === "Expiring") && (
                     <button
                       className="coi-btn"
@@ -690,7 +801,7 @@ export default function Dashboard() {
                         cursor: "pointer", transition: "all .15s ease",
                       }}
                     >
-                      {copiedId === selected.id ? "Copied to clipboard" : "Copy email draft"}
+                      {copiedId === selected.id ? "Copied" : selected.email ? "Copy draft" : "Copy email draft"}
                     </button>
                   )}
                 </div>
