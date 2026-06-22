@@ -271,6 +271,7 @@ export default function Dashboard() {
   const [emailSaving, setEmailSaving] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
+  const [criticalDismissed, setCriticalDismissed] = useState(false);
   const updateMutation = useUpdateVendor();
 
   useEffect(() => {
@@ -287,7 +288,12 @@ export default function Dashboard() {
   }, [selected?.id]);
 
   const results = useMemo(() => vendors.map((v) => ({ v, r: checkCompliance(v) })), [vendors]);
-  
+
+  const criticalVendors = useMemo(
+    () => results.filter(({ r }) => r.daysLeft !== null && r.daysLeft >= 0 && r.daysLeft <= 7),
+    [results]
+  );
+
   const counts = useMemo(() => ({
     Compliant: results.filter((x) => x.r.status === "Compliant").length,
     Expiring: results.filter((x) => x.r.status === "Expiring").length,
@@ -478,6 +484,54 @@ export default function Dashboard() {
             <span style={{ fontSize: 13, color: C.ivory }}>{error}</span>
             <button onClick={() => setError("")} style={{ background: "none", border: "none", color: C.bad,
               cursor: "pointer", fontSize: 13, fontFamily: "'DM Mono', monospace" }}>dismiss</button>
+          </div>
+        )}
+
+        {/* 7-day critical expiry banner */}
+        {criticalVendors.length > 0 && !criticalDismissed && (
+          <div style={{
+            marginTop: 16,
+            background: `${C.bad}12`,
+            border: `1px solid ${C.bad}66`,
+            borderLeft: `3px solid ${C.bad}`,
+            borderRadius: 3,
+            padding: "12px 16px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 14,
+          }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <span style={{ fontSize: 15, lineHeight: 1, marginTop: 1 }}>⚠</span>
+              <div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: C.ivory,
+                  fontWeight: 500, marginBottom: 4 }}>
+                  {criticalVendors.length === 1
+                    ? "1 certificate expiring within 7 days"
+                    : `${criticalVendors.length} certificates expiring within 7 days`}
+                </div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: C.bad,
+                  lineHeight: 1.6 }}>
+                  {criticalVendors.map(({ v, r }) => (
+                    <span
+                      key={v.id}
+                      onClick={() => setSelected(v)}
+                      style={{ marginRight: 16, cursor: "pointer", textDecoration: "underline",
+                        textDecorationStyle: "dotted", textUnderlineOffset: 3 }}
+                    >
+                      {v.name} ({r.daysLeft === 0 ? "today" : `${r.daysLeft}d`})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setCriticalDismissed(true)}
+              style={{ background: "none", border: "none", color: C.muted, cursor: "pointer",
+                fontSize: 13, fontFamily: "'DM Mono', monospace", flexShrink: 0, paddingTop: 1 }}
+            >
+              dismiss
+            </button>
           </div>
         )}
 
