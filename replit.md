@@ -1,36 +1,51 @@
-# [Project name]
+# Attest·COI
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A vendor insurance compliance ledger. Property managers track Certificate of Insurance (COI) documents for vendors — uploading PDFs to auto-extract coverage data using Claude, and automatically checking each vendor against coverage minimums by type.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/coi-tracker run dev` — run the frontend (port auto-assigned)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
+- Required secret: `ANTHROPIC_API_KEY` — used server-side only for COI PDF extraction
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
+- Frontend: React + Vite, Wouter routing, TanStack Query, inline brand styles
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
+- AI: Anthropic Claude (claude-sonnet-4-6) — server-side PDF extraction only
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — source of truth for all API contracts
+- `lib/db/src/schema/vendors.ts` — vendors table (id, name, type, coverages jsonb, etc.)
+- `artifacts/api-server/src/routes/vendors.ts` — all vendor + COI + stats routes, Claude extraction
+- `artifacts/coi-tracker/src/pages/Dashboard.tsx` — main COI ledger page
+- `artifacts/coi-tracker/src/App.tsx` — router + providers
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- COI PDF extraction happens **server-side** — the Anthropic API key is never exposed to the browser. The frontend sends base64 PDF to `/api/coi/extract`, the server calls Claude.
+- Coverages stored as `jsonb` in Postgres — flexible for varying coverage types without rigid schema.
+- Compliance logic runs **client-side** (in the detail panel) for instant feedback; the `/api/stats` endpoint replicates it server-side for the KPI summary row.
+- All vendor types and coverage requirements are defined as constants in `artifacts/api-server/src/routes/vendors.ts` (server) and mirrored in `artifacts/coi-tracker/src/pages/Dashboard.tsx` (client).
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **Compliance ledger**: Table of all vendors with GL limit, earliest expiry date, and status chip (Compliant / Expiring / Non-compliant)
+- **KPI cards**: Live counts of total vendors, compliant, expiring ≤30 days, non-compliant
+- **Filter tabs**: Filter table by status
+- **Detail panel**: Click any vendor row to see per-coverage compliance checks with pass/fail, all coverages on the certificate, and a delete button
+- **COI upload**: Upload a PDF → server calls Claude to extract structured data → vendor is added and checked automatically
 
 ## User preferences
 
@@ -38,8 +53,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Always run `pnpm --filter @workspace/api-spec run codegen` after changing `openapi.yaml`
+- `coverages` is a jsonb column — Drizzle returns it as `unknown`, cast to `any[]` in route handlers
+- The `ON CONFLICT DO NOTHING` in seed SQL means re-running the seed is safe
+- Coverage type normalization must be kept in sync between client (Dashboard.tsx) and server (vendors.ts)
