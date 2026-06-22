@@ -27,6 +27,7 @@ export const ListVendorsResponseItem = zod.object({
   "waiver_of_subrogation": zod.boolean(),
   "certificate_holder": zod.string(),
   "email": zod.string().nullish(),
+  "notes": zod.string().nullish(),
   "coverages": zod.array(zod.object({
   "type": zod.string(),
   "policy_number": zod.string().optional(),
@@ -51,6 +52,7 @@ export const CreateVendorBody = zod.object({
   "waiver_of_subrogation": zod.boolean(),
   "certificate_holder": zod.string(),
   "email": zod.string().nullish(),
+  "notes": zod.string().nullish(),
   "coverages": zod.array(zod.object({
   "type": zod.string(),
   "policy_number": zod.string().optional(),
@@ -78,6 +80,7 @@ export const GetVendorResponse = zod.object({
   "waiver_of_subrogation": zod.boolean(),
   "certificate_holder": zod.string(),
   "email": zod.string().nullish(),
+  "notes": zod.string().nullish(),
   "coverages": zod.array(zod.object({
   "type": zod.string(),
   "policy_number": zod.string().optional(),
@@ -105,6 +108,7 @@ export const UpdateVendorBody = zod.object({
   "waiver_of_subrogation": zod.boolean(),
   "certificate_holder": zod.string(),
   "email": zod.string().nullish(),
+  "notes": zod.string().nullish(),
   "coverages": zod.array(zod.object({
   "type": zod.string(),
   "policy_number": zod.string().optional(),
@@ -124,6 +128,7 @@ export const UpdateVendorResponse = zod.object({
   "waiver_of_subrogation": zod.boolean(),
   "certificate_holder": zod.string(),
   "email": zod.string().nullish(),
+  "notes": zod.string().nullish(),
   "coverages": zod.array(zod.object({
   "type": zod.string(),
   "policy_number": zod.string().optional(),

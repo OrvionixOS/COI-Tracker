@@ -269,6 +269,8 @@ export default function Dashboard() {
   const [bulkCopied, setBulkCopied] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
   const [emailSaving, setEmailSaving] = useState(false);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [notesSaving, setNotesSaving] = useState(false);
   const updateMutation = useUpdateVendor();
 
   useEffect(() => {
@@ -281,6 +283,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     setEmailDraft(selected?.email ?? "");
+    setNotesDraft(selected?.notes ?? "");
   }, [selected?.id]);
 
   const results = useMemo(() => vendors.map((v) => ({ v, r: checkCompliance(v) })), [vendors]);
@@ -298,28 +301,36 @@ export default function Dashboard() {
     [results]
   );
 
-  const saveEmail = async () => {
+  const patchVendor = async (patch: { email?: string | null; notes?: string | null }) => {
     if (!selected) return;
+    const updated = await updateMutation.mutateAsync({
+      id: selected.id,
+      data: {
+        name: selected.name,
+        type: selected.type,
+        additional_insured: selected.additional_insured,
+        waiver_of_subrogation: selected.waiver_of_subrogation,
+        certificate_holder: selected.certificate_holder,
+        email: "email" in patch ? patch.email : (selected.email ?? null),
+        notes: "notes" in patch ? patch.notes : (selected.notes ?? null),
+        coverages: selected.coverages ?? [],
+        source: selected.source ?? null,
+      },
+    });
+    setSelected(updated);
+    queryClient.invalidateQueries({ queryKey: getListVendorsQueryKey() });
+  };
+
+  const saveEmail = async () => {
     setEmailSaving(true);
-    try {
-      const updated = await updateMutation.mutateAsync({
-        id: selected.id,
-        data: {
-          name: selected.name,
-          type: selected.type,
-          additional_insured: selected.additional_insured,
-          waiver_of_subrogation: selected.waiver_of_subrogation,
-          certificate_holder: selected.certificate_holder,
-          email: emailDraft.trim() || null,
-          coverages: selected.coverages ?? [],
-          source: selected.source ?? null,
-        },
-      });
-      setSelected(updated);
-      queryClient.invalidateQueries({ queryKey: getListVendorsQueryKey() });
-    } finally {
-      setEmailSaving(false);
-    }
+    try { await patchVendor({ email: emailDraft.trim() || null }); }
+    finally { setEmailSaving(false); }
+  };
+
+  const saveNotes = async () => {
+    setNotesSaving(true);
+    try { await patchVendor({ notes: notesDraft.trim() || null }); }
+    finally { setNotesSaving(false); }
   };
 
   const openMailto = (vendor: Vendor, result: ReturnType<typeof checkCompliance>) => {
@@ -712,6 +723,44 @@ export default function Dashboard() {
                     {emailSaving ? "Saving…" : "Save"}
                   </button>
                 )}
+              </div>
+
+              {/* Notes */}
+              <div style={{ padding: "14px 26px", borderBottom: `1px solid ${C.lineSoft}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                  marginBottom: 8 }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.1em",
+                    textTransform: "uppercase", color: C.muted }}>
+                    Internal notes
+                  </div>
+                  {notesDraft !== (selected.notes ?? "") && (
+                    <button
+                      onClick={saveNotes}
+                      disabled={notesSaving}
+                      style={{
+                        background: "transparent", color: C.gold, border: `1px solid ${C.gold}55`,
+                        borderRadius: 2, padding: "3px 10px", fontFamily: "'DM Mono', monospace",
+                        fontSize: 11, cursor: "pointer",
+                      }}
+                    >
+                      {notesSaving ? "Saving…" : "Save"}
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  value={notesDraft}
+                  onChange={(e) => setNotesDraft(e.target.value)}
+                  onBlur={() => { if (notesDraft !== (selected.notes ?? "")) saveNotes(); }}
+                  placeholder="e.g. Awaiting renewal from broker · Follow-up sent Jun 22"
+                  rows={3}
+                  style={{
+                    width: "100%", boxSizing: "border-box",
+                    background: C.raised, border: `1px solid ${C.lineSoft}`,
+                    borderRadius: 2, color: C.ivory, resize: "vertical",
+                    fontFamily: "'DM Mono', monospace", fontSize: 11,
+                    lineHeight: 1.7, padding: "8px 10px", outline: "none",
+                  }}
+                />
               </div>
 
               {/* Compliance check */}

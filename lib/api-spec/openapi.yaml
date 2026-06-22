@@ -195,6 +195,8 @@ components:
           type: string
         email:
           type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
         coverages:
           type: array
           items:
@@ -226,6 +228,8 @@ components:
         certificate_holder:
           type: string
         email:
+          type: ["string", "null"]
+        notes:
           type: ["string", "null"]
         coverages:
           type: array

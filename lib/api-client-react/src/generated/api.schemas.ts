@@ -27,6 +27,7 @@ export interface Vendor {
   certificate_holder: string;
   /** @nullable */
   email?: string | null;
+  notes?: string | null;
   coverages: Coverage[];
   /** @nullable */
   source?: string | null;
@@ -41,6 +42,7 @@ export interface VendorInput {
   certificate_holder: string;
   /** @nullable */
   email?: string | null;
+  notes?: string | null;
   coverages: Coverage[];
   /** @nullable */
   source?: string | null;
