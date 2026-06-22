@@ -1,22 +1,26 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: COI Tracker API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: vendors
+    description: Vendor operations
+  - name: coi
+    description: COI extraction
+  - name: stats
+    description: Dashboard statistics
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +28,128 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /vendors:
+    get:
+      operationId: listVendors
+      tags: [vendors]
+      summary: List all vendors
+      responses:
+        "200":
+          description: List of vendors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+    post:
+      operationId: createVendor
+      tags: [vendors]
+      summary: Create a vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "201":
+          description: Created vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+
+  /vendors/{id}:
+    get:
+      operationId: getVendor
+      tags: [vendors]
+      summary: Get a single vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "404":
+          description: Not found
+    put:
+      operationId: updateVendor
+      tags: [vendors]
+      summary: Update a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "200":
+          description: Updated vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+    delete:
+      operationId: deleteVendor
+      tags: [vendors]
+      summary: Delete a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /coi/extract:
+    post:
+      operationId: extractCoi
+      tags: [coi]
+      summary: Extract COI data from a PDF
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoiExtractInput"
+      responses:
+        "200":
+          description: Extracted COI data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoiExtractResult"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get compliance dashboard statistics
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +160,129 @@ components:
       required:
         - status
 
+    Coverage:
+      type: object
+      properties:
+        type:
+          type: string
+        policy_number:
+          type: string
+        effective_date:
+          type: string
+        expiration_date:
+          type: string
+        each_occurrence:
+          type: string
+        aggregate:
+          type: string
+      required:
+        - type
+
+    Vendor:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+        additional_insured:
+          type: boolean
+        waiver_of_subrogation:
+          type: boolean
+        certificate_holder:
+          type: string
+        coverages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Coverage"
+        source:
+          type: ["string", "null"]
+        created_at:
+          type: string
+      required:
+        - id
+        - name
+        - type
+        - additional_insured
+        - waiver_of_subrogation
+        - certificate_holder
+        - coverages
+
+    VendorInput:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        additional_insured:
+          type: boolean
+        waiver_of_subrogation:
+          type: boolean
+        certificate_holder:
+          type: string
+        coverages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Coverage"
+        source:
+          type: ["string", "null"]
+      required:
+        - name
+        - type
+        - additional_insured
+        - waiver_of_subrogation
+        - certificate_holder
+        - coverages
+
+    CoiExtractInput:
+      type: object
+      properties:
+        pdf_base64:
+          type: string
+        vendor_type:
+          type: string
+      required:
+        - pdf_base64
+        - vendor_type
+
+    CoiExtractResult:
+      type: object
+      properties:
+        insured_name:
+          type: string
+        certificate_holder:
+          type: string
+        additional_insured:
+          type: boolean
+        waiver_of_subrogation:
+          type: boolean
+        coverages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Coverage"
+      required:
+        - insured_name
+        - certificate_holder
+        - additional_insured
+        - waiver_of_subrogation
+        - coverages
+
+    Stats:
+      type: object
+      properties:
+        total:
+          type: integer
+        compliant:
+          type: integer
+        expiring:
+          type: integer
+        non_compliant:
+          type: integer
+      required:
+        - total
+        - compliant
+        - expiring
+        - non_compliant
