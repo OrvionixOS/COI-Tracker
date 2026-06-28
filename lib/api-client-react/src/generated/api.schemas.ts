@@ -27,6 +27,7 @@ export interface Vendor {
   certificate_holder: string;
   /** @nullable */
   email?: string | null;
+  /** @nullable */
   notes?: string | null;
   coverages: Coverage[];
   /** @nullable */
@@ -42,6 +43,7 @@ export interface VendorInput {
   certificate_holder: string;
   /** @nullable */
   email?: string | null;
+  /** @nullable */
   notes?: string | null;
   coverages: Coverage[];
   /** @nullable */
@@ -59,6 +61,24 @@ export interface CoiExtractResult {
   additional_insured: boolean;
   waiver_of_subrogation: boolean;
   coverages: Coverage[];
+}
+
+export interface UploadLink {
+  token: string;
+  expires_at: string;
+}
+
+export interface UploadLinkInfo {
+  vendor_id: number;
+  vendor_name: string;
+  vendor_type: string;
+  expires_at: string;
+  /** @nullable */
+  used_at?: string | null;
+}
+
+export interface UploadSubmitInput {
+  pdf_base64: string;
 }
 
 export interface Stats {

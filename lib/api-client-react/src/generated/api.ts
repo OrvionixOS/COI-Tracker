@@ -24,6 +24,9 @@ import type {
   CoiExtractResult,
   HealthStatus,
   Stats,
+  UploadLink,
+  UploadLinkInfo,
+  UploadSubmitInput,
   Vendor,
   VendorInput
 } from './api.schemas';
@@ -553,6 +556,225 @@ export const useExtractCoi = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getExtractCoiMutationOptions(options));
+    }
+
+export const getCreateUploadLinkUrl = (id: number,) => {
+
+
+
+
+  return `/api/vendors/${id}/upload-link`
+}
+
+/**
+ * @summary Generate a shareable COI upload link for a vendor
+ */
+export const createUploadLink = async (id: number, options?: RequestInit): Promise<UploadLink> => {
+
+  return customFetch<UploadLink>(getCreateUploadLinkUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getCreateUploadLinkMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUploadLink>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createUploadLink>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['createUploadLink'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUploadLink>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  createUploadLink(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateUploadLinkMutationResult = NonNullable<Awaited<ReturnType<typeof createUploadLink>>>
+
+    export type CreateUploadLinkMutationError = ErrorType<void>
+
+    /**
+ * @summary Generate a shareable COI upload link for a vendor
+ */
+export const useCreateUploadLink = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUploadLink>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createUploadLink>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getCreateUploadLinkMutationOptions(options));
+    }
+
+export const getGetUploadLinkUrl = (token: string,) => {
+
+
+
+
+  return `/api/upload-links/${token}`
+}
+
+/**
+ * @summary Get upload link info by token
+ */
+export const getUploadLink = async (token: string, options?: RequestInit): Promise<UploadLinkInfo> => {
+
+  return customFetch<UploadLinkInfo>(getGetUploadLinkUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUploadLinkQueryKey = (token: string,) => {
+    return [
+    `/api/upload-links/${token}`
+    ] as const;
+    }
+
+
+export const getGetUploadLinkQueryOptions = <TData = Awaited<ReturnType<typeof getUploadLink>>, TError = ErrorType<void>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUploadLink>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUploadLinkQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUploadLink>>> = ({ signal }) => getUploadLink(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(token), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUploadLink>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUploadLinkQueryResult = NonNullable<Awaited<ReturnType<typeof getUploadLink>>>
+export type GetUploadLinkQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get upload link info by token
+ */
+
+export function useGetUploadLink<TData = Awaited<ReturnType<typeof getUploadLink>>, TError = ErrorType<void>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUploadLink>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUploadLinkQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getSubmitUploadLinkUrl = (token: string,) => {
+
+
+
+
+  return `/api/upload-links/${token}/submit`
+}
+
+/**
+ * @summary Submit a COI PDF via an upload link
+ */
+export const submitUploadLink = async (token: string,
+    uploadSubmitInput: UploadSubmitInput, options?: RequestInit): Promise<Vendor> => {
+
+  return customFetch<Vendor>(getSubmitUploadLinkUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      uploadSubmitInput,)
+  }
+);}
+
+
+
+
+export const getSubmitUploadLinkMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitUploadLink>>, TError,{token: string;data: BodyType<UploadSubmitInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitUploadLink>>, TError,{token: string;data: BodyType<UploadSubmitInput>}, TContext> => {
+
+const mutationKey = ['submitUploadLink'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitUploadLink>>, {token: string;data: BodyType<UploadSubmitInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  submitUploadLink(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitUploadLinkMutationResult = NonNullable<Awaited<ReturnType<typeof submitUploadLink>>>
+    export type SubmitUploadLinkMutationBody = BodyType<UploadSubmitInput>
+    export type SubmitUploadLinkMutationError = ErrorType<void>
+
+    /**
+ * @summary Submit a COI PDF via an upload link
+ */
+export const useSubmitUploadLink = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitUploadLink>>, TError,{token: string;data: BodyType<UploadSubmitInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitUploadLink>>,
+        TError,
+        {token: string;data: BodyType<UploadSubmitInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitUploadLinkMutationOptions(options));
     }
 
 export const getGetStatsUrl = () => {

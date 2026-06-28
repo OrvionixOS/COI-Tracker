@@ -7,6 +7,7 @@ import {
   useCreateVendor,
   useUpdateVendor,
   useDeleteVendor,
+  useCreateUploadLink,
   getListVendorsQueryKey,
   getGetStatsQueryKey,
 } from "@workspace/api-client-react";
@@ -265,6 +266,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [linkCopied, setLinkCopied] = useState<number | null>(null);
   const [remindersOpen, setRemindersOpen] = useState(false);
   const [bulkCopied, setBulkCopied] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
@@ -273,6 +275,7 @@ export default function Dashboard() {
   const [notesSaving, setNotesSaving] = useState(false);
   const [criticalDismissed, setCriticalDismissed] = useState(false);
   const updateMutation = useUpdateVendor();
+  const createUploadLinkMutation = useCreateUploadLink();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -354,6 +357,19 @@ export default function Dashboard() {
       setCopiedId(vendor.id);
       setTimeout(() => setCopiedId(null), 2000);
     });
+  };
+
+  const copyUploadLink = async (vendorId: number) => {
+    try {
+      const result = await createUploadLinkMutation.mutateAsync({ id: vendorId });
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const url = `${window.location.origin}${base}/upload/${result.token}`;
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(vendorId);
+      setTimeout(() => setLinkCopied(null), 3000);
+    } catch {
+      /* silently ignore */
+    }
   };
 
   const copyBulk = () => {

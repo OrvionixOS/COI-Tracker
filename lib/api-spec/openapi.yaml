@@ -15,6 +15,8 @@ tags:
     description: COI extraction
   - name: stats
     description: Dashboard statistics
+  - name: upload-links
+    description: Vendor COI self-upload links
 paths:
   /healthz:
     get:
@@ -136,6 +138,77 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CoiExtractResult"
+
+  /vendors/{id}/upload-link:
+    post:
+      operationId: createUploadLink
+      tags: [upload-links]
+      summary: Generate a shareable COI upload link for a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Created upload link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadLink"
+        "404":
+          description: Vendor not found
+
+  /upload-links/{token}:
+    get:
+      operationId: getUploadLink
+      tags: [upload-links]
+      summary: Get upload link info by token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Upload link info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadLinkInfo"
+        "404":
+          description: Token not found or expired
+
+  /upload-links/{token}/submit:
+    post:
+      operationId: submitUploadLink
+      tags: [upload-links]
+      summary: Submit a COI PDF via an upload link
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadSubmitInput"
+      responses:
+        "200":
+          description: Updated vendor after COI submission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "404":
+          description: Token not found or expired
+        "410":
+          description: Link already used
 
   /stats:
     get:
@@ -277,6 +350,44 @@ components:
         - additional_insured
         - waiver_of_subrogation
         - coverages
+
+    UploadLink:
+      type: object
+      properties:
+        token:
+          type: string
+        expires_at:
+          type: string
+      required:
+        - token
+        - expires_at
+
+    UploadLinkInfo:
+      type: object
+      properties:
+        vendor_id:
+          type: integer
+        vendor_name:
+          type: string
+        vendor_type:
+          type: string
+        expires_at:
+          type: string
+        used_at:
+          type: ["string", "null"]
+      required:
+        - vendor_id
+        - vendor_name
+        - vendor_type
+        - expires_at
+
+    UploadSubmitInput:
+      type: object
+      properties:
+        pdf_base64:
+          type: string
+      required:
+        - pdf_base64
 
     Stats:
       type: object

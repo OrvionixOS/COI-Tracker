@@ -15,6 +15,7 @@ export interface VendorInput {
   certificate_holder: string;
   /** @nullable */
   email?: string | null;
+  /** @nullable */
   notes?: string | null;
   coverages: Coverage[];
   /** @nullable */

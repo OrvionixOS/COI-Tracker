@@ -175,6 +175,63 @@ export const ExtractCoiResponse = zod.object({
 
 
 /**
+ * @summary Generate a shareable COI upload link for a vendor
+ */
+export const CreateUploadLinkParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Get upload link info by token
+ */
+export const GetUploadLinkParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetUploadLinkResponse = zod.object({
+  "vendor_id": zod.number(),
+  "vendor_name": zod.string(),
+  "vendor_type": zod.string(),
+  "expires_at": zod.string(),
+  "used_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Submit a COI PDF via an upload link
+ */
+export const SubmitUploadLinkParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const SubmitUploadLinkBody = zod.object({
+  "pdf_base64": zod.string()
+})
+
+export const SubmitUploadLinkResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "type": zod.string(),
+  "additional_insured": zod.boolean(),
+  "waiver_of_subrogation": zod.boolean(),
+  "certificate_holder": zod.string(),
+  "email": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "coverages": zod.array(zod.object({
+  "type": zod.string(),
+  "policy_number": zod.string().optional(),
+  "effective_date": zod.string().optional(),
+  "expiration_date": zod.string().optional(),
+  "each_occurrence": zod.string().optional(),
+  "aggregate": zod.string().optional()
+})),
+  "source": zod.string().nullish(),
+  "created_at": zod.string().optional()
+})
+
+
+/**
  * @summary Get compliance dashboard statistics
  */
 export const GetStatsResponse = zod.object({

@@ -11,5 +11,8 @@ export * from './coiExtractResult';
 export * from './coverage';
 export * from './healthStatus';
 export * from './stats';
+export * from './uploadLink';
+export * from './uploadLinkInfo';
+export * from './uploadSubmitInput';
 export * from './vendor';
 export * from './vendorInput';
