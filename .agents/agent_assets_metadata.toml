@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "IQjodB1eOIwgG9RW4Lrbo"
+uri = "file://artifacts/attest-coi-video/public/audio/bg_music.mp3"
+type = "audio"
+title = "background music"
